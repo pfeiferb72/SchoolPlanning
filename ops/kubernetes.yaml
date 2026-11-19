@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: schoolplanning}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: schoolplanning}}
+  template:
+    metadata: {labels: {app: schoolplanning}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: app
+          image: schoolplanning:1.0.0
+          ports: [{containerPort: 8080}]
+          envFrom: [{secretRef: {name: schoolplanning-config}}]
+          env:
+            - {name: SPRING_PROFILES_ACTIVE, value: oidc}
+            - {name: DEMO_MODE, value: "false"}
+          readinessProbe: {httpGet: {path: /health, port: 8080}, periodSeconds: 10}
+          startupProbe: {httpGet: {path: /health, port: 8080}, failureThreshold: 30, periodSeconds: 5}
+          resources:
+            requests: {cpu: 500m, memory: 512Mi}
+            limits: {cpu: "2", memory: 2Gi}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: schoolplanning}
+spec:
+  selector: {app: schoolplanning}
+  ports: [{name: http, port: 80, targetPort: 8080}]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: schoolplanning-backup}
+spec:
+  schedule: "0 2 * * *"
+  timeZone: Europe/Vienna
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dump
+              image: postgres:16
+              envFrom: [{secretRef: {name: schoolplanning-backup}}]
+              volumeMounts: [{name: backup, mountPath: /backup}]
+              command: ["/bin/sh","-ec"]
+              args:
+                - |
+                  umask 077
+                  tmp=$(mktemp /backup/.pending.XXXXXX)
+                  trap 'rm -f "$tmp"' EXIT
+                  pg_dump -Fc > "$tmp"
+                  pg_restore -l "$tmp" >/dev/null
+                  mv "$tmp" "/backup/schoolplanning-$(date -u +%Y%m%dT%H%M%SZ).dump"
+          volumes:
+            - name: backup
+              persistentVolumeClaim: {claimName: schoolplanning-backups}

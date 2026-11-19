@@ -1,0 +1,18 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          school:
+            client-id: ${OIDC_CLIENT_ID}
+            client-secret: ${OIDC_CLIENT_SECRET}
+            scope: openid,profile,email
+            provider: school
+        provider:
+          school:
+            issuer-uri: ${OIDC_ISSUER}
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true

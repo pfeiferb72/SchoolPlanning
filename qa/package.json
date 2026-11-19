@@ -1,0 +1,12 @@
+{
+  "name": "schoolplanning-qa",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1",
+    "prettier": "3.6.2"
+  }
+}

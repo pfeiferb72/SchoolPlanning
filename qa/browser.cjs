@@ -70,6 +70,27 @@ const fs = require("node:fs/promises");
     await page.reload();
     await page.getByLabel("Szenario", { exact: true }).selectOption(id);
     const path = root + "/scenarios/" + id;
+    await page
+      .getByRole("button", { name: "Szenario importieren", exact: true })
+      .click();
+    await page
+      .getByLabel("SchoolPlanning-Szenario (.json)")
+      .setInputFiles(
+        require("node:path").join(
+          __dirname,
+          "../src/main/resources/static/examples/02-referenzplan.json",
+        ),
+      );
+    await page.getByRole("button", { name: "Als Entwurf importieren" }).click();
+    await page.getByText("Szenario als eigener Entwurf importiert.").waitFor();
+    const example = (await request(root + "/scenarios")).filter(
+      (x) => x.name === "AHS-Unterstufe · Referenzplan",
+    )[0];
+    assert.deepEqual(
+      (await request(root + "/scenarios/" + example.id)).metrics.outstanding,
+      [],
+    );
+    await page.getByLabel("Szenario", { exact: true }).selectOption(id);
     const manual = page.getByRole("button", { name: /M · 1A/ }).first();
     await manual.click();
     await page.getByRole("dialog").waitFor();

@@ -63,7 +63,7 @@ public class Store implements ApplicationRunner {
     String school = demo ? "demo" : "schule";
     boolean fresh =
         db.update(
-                "insert into school values(?,?) on conflict do nothing",
+                "insert into school(id,name) values(?,?) on conflict do nothing",
                 school,
                 demo ? "Campus Alpenblick" : "Meine Schule")
             > 0;
@@ -136,7 +136,7 @@ public class Store implements ApplicationRunner {
         date == null
             ? ""
             : " and (document->'catalog'->>'from')::date<=? and"
-                  + " (document->'catalog'->>'until')::date>=?";
+                + " (document->'catalog'->>'until')::date>=?";
     Object[] args =
         date == null ? new Object[] {m.school()} : new Object[] {m.school(), date, date};
     return db
@@ -172,7 +172,8 @@ public class Store implements ApplicationRunner {
     String subscription = covers ? "subscribe_cover" : "subscribe_plan";
     var recipients =
         db.queryForList(
-            "select subject,email,role,entity from membership where school_id=? and "
+            "select subject,email,role,entity from membership where school_id=? and (purpose_until"
+                + " is null or purpose_until >= (now() at time zone 'Europe/Vienna')::date) and "
                 + subscription,
             m.school());
     for (var row : recipients) {

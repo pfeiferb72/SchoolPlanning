@@ -57,7 +57,9 @@ class Api {
                 .database()
                 .queryForList(
                     "select s.id,s.name,m.role,m.entity from school s join membership m on"
-                        + " m.school_id=s.id where m.subject=? order by s.name",
+                        + " m.school_id=s.id where m.subject=? and (m.purpose_until is null or"
+                        + " m.purpose_until >= (now() at time zone 'Europe/Vienna')::date) order by"
+                        + " s.name",
                     Security.subject(auth)));
   }
 
@@ -89,6 +91,19 @@ class Api {
       p.catalog.periods = List.of();
     }
     return Map.of("id", store.create(m, body.name, p));
+  }
+
+  record ScenarioImport(String name, Plan plan) {}
+
+  record Created(UUID id) {}
+
+  @PostMapping(BASE + "/scenarios/import")
+  Created importScenario(
+      Authentication a, @PathVariable String school, @RequestBody ScenarioImport payload) {
+    var m = member(a, school);
+    m.allow("PLAN");
+    require(payload.plan() != null, "Plandaten fehlen");
+    return new Created(store.create(m, payload.name(), payload.plan()));
   }
 
   record ScenarioView(Store.Scenario scenario, Engine.Metrics metrics, boolean redo) {}

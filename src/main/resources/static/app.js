@@ -20,6 +20,9 @@ createApp({
     roles,
     stages,
     createOpen: false,
+    importOpen: false,
+    importFile: null,
+    importing: false,
     createName: "",
     copyId: "",
     changeDates: false,
@@ -140,10 +143,36 @@ createApp({
       this.notice = "";
     },
     openCreate() {
+      this.importOpen = false;
       this.createName = "";
       this.copyId = this.selected;
       this.changeDates = false;
       this.createOpen = true;
+    },
+    async importScenario() {
+      if (this.importing || !this.importFile) return;
+      this.importing = true;
+      await this.guard(async () => {
+        if (this.importFile.size > 8 * 1024 * 1024)
+          throw Error("Szenariodatei größer als 8 MB.");
+        let body;
+        try {
+          body = JSON.parse(await this.importFile.text());
+        } catch {
+          throw Error("Die ausgewählte Datei enthält kein gültiges JSON.");
+        }
+        const created = await api(
+          this.base + "/scenarios/import",
+          "POST",
+          body,
+        );
+        await this.list(created.id);
+        this.importOpen = false;
+        this.importFile = null;
+        this.section = "plan";
+        this.notice = "Szenario als eigener Entwurf importiert.";
+      });
+      this.importing = false;
     },
     async create() {
       await this.guard(async () => {
@@ -178,7 +207,8 @@ createApp({
  <nav aria-label="Hauptnavigation"><button v-for="x in sections" :class="{active:section===x[0]}" @click="select(x[0])"><span aria-hidden="true">{{x[2]}}</span>{{x[1]}}</button></nav><footer><span class="avatar">{{roles[school.role].slice(0,1)}}</span><div><strong>{{roles[school.role]}}</strong><button class="logout" @click="logout">Abmelden</button></div></footer></aside>
  <main><header class="top"><div><span class="eyebrow">{{school.name}}</span><h1>{{active?.[1]}}</h1></div><span class="pill" v-if="snap&&isWork"><i></i>{{stages[snap.scenario.status]}}</span></header>
  <div v-if="error" role="alert" class="alert">{{error}} <button @click="error=''">Schließen</button></div><div v-if="notice" role="status" class="success">{{notice}} <button @click="notice=''">×</button></div>
- <section v-if="isWork" class="scenario-bar"><label>Szenario<select aria-label="Szenario" v-model="selected" @change="guard(load)"><option v-for="s in scenarios" :value="s.id">{{s.name}} · {{stages[s.status]}}</option></select></label><button v-if="school.role==='PLAN'" @click="openCreate">＋ Szenario</button><details v-if="scenarios.length>1"><summary>Vergleichen</summary><select aria-label="Vergleichsszenario" v-model="compare"><option v-for="s in scenarios.filter(x=>x.id!==selected)" :value="s.id">{{s.name}}</option></select><button :disabled="!compare" @click="comparePlans">Differenz anzeigen</button></details></section>
+ <section v-if="isWork" class="scenario-bar"><label>Szenario<select aria-label="Szenario" v-model="selected" @change="guard(load)"><option v-for="s in scenarios" :value="s.id">{{s.name}} · {{stages[s.status]}}</option></select></label><button v-if="school.role==='PLAN'" @click="openCreate">＋ Szenario</button><button v-if="school.role==='PLAN'" @click="importOpen=!importOpen;createOpen=false">Szenario importieren</button><details v-if="scenarios.length>1"><summary>Vergleichen</summary><select aria-label="Vergleichsszenario" v-model="compare"><option v-for="s in scenarios.filter(x=>x.id!==selected)" :value="s.id">{{s.name}}</option></select><button :disabled="!compare" @click="comparePlans">Differenz anzeigen</button></details></section>
+ <section v-if="importOpen&&isWork" class="panel"><h2>Szenario importieren</h2><p>Beispieldaten für eine AHS-Unterstufe mit acht Klassen und 30 Lehrkräften herunterladen:</p><div class="chips"><a href="/examples/AHS_Unterstufe_Beispiele.zip" download>Beispielpaket mit PDF und CSV (ZIP)</a><a href="/examples/01-planungsstart.json" download>Offener Plan (JSON)</a><a href="/examples/02-referenzplan.json" download>Fertiger Referenzplan (JSON)</a></div><form @submit.prevent="importScenario"><label>SchoolPlanning-Szenario (.json)<input type="file" accept=".json,application/json" @change="importFile=$event.target.files[0]||null" required></label><button class="primary" :disabled="!importFile||importing">Als Entwurf importieren</button> <button type="button" @click="importOpen=false;importFile=null">Schließen</button></form></section>
  <section v-if="diff" class="panel"><button class="right" @click="diff=null">Schließen</button><h2>Szenarienvergleich</h2><p>{{diff.placements.length}} unterschiedliche Platzierungen · Stammdaten {{diff.catalogChanged?'unterschiedlich':'gleich'}}</p><p v-for="p in diff.placements">{{p.lesson}} · {{p.current?.room||'offen'}} / {{p.other?.room||'offen'}} · Tag {{p.current?.day||'–'}} / {{p.other?.day||'–'}} · Stunde {{(p.current?.slot??-1)+1}} / {{(p.other?.slot??-1)+1}}</p></section>
  <div v-if="createOpen" class="panel"><form @submit.prevent="create"><h2>Szenario anlegen</h2><div class="fields"><label>Name<input required maxlength="120" v-model="createName"></label><label>Grundlage<select v-model="copyId"><option value="">Leerer Plan</option><option v-for="s in scenarios" :value="s.id">{{s.name}}</option></select></label><label><input type="checkbox" v-model="changeDates"> Neuer Semesterzeitraum</label><template v-if="changeDates"><label>Von<input type="date" v-model="dateFrom" required></label><label>Bis<input type="date" v-model="dateTo" required></label></template></div><button class="primary">Anlegen</button> <button type="button" @click="createOpen=false">Abbrechen</button></form></div>
  <Planner v-if="snap&&section==='plan'" :key="selected" :snap="snap" :base="base" :school="school" @changed="changed" @error="error=$event"/>

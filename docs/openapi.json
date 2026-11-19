@@ -119,6 +119,67 @@
         }
       }
     },
+    "/api/v1/schools/{school}/retention": {
+      "get": {
+        "tags": [
+          "retention"
+        ],
+        "operationId": "policy",
+        "parameters": [
+          {
+            "name": "school",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Policy"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "retention"
+        ],
+        "operationId": "save",
+        "parameters": [
+          {
+            "name": "school",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Policy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/schools/{school}/wishes": {
       "get": {
         "tags": [
@@ -245,7 +306,7 @@
         "tags": [
           "templates"
         ],
-        "operationId": "save",
+        "operationId": "save_1",
         "parameters": [
           {
             "name": "school",
@@ -634,6 +695,46 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/schools/{school}/scenarios/import": {
+      "post": {
+        "tags": [
+          "api"
+        ],
+        "operationId": "importScenario",
+        "parameters": [
+          {
+            "name": "school",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Created"
+                }
+              }
+            }
           }
         }
       }
@@ -1138,6 +1239,45 @@
               "*/*": {
                 "schema": {
                   "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schools/{school}/retention/preview": {
+      "get": {
+        "tags": [
+          "retention"
+        ],
+        "operationId": "preview",
+        "parameters": [
+          {
+            "name": "school",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preview"
                 }
               }
             }
@@ -2037,6 +2177,15 @@
           }
         }
       },
+      "Policy": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "Wish": {
         "type": "object",
         "properties": {
@@ -2316,6 +2465,40 @@
           }
         }
       },
+      "Plan": {
+        "type": "object",
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/Catalog"
+          },
+          "places": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Place"
+            }
+          }
+        }
+      },
+      "ScenarioImport": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/Plan"
+          }
+        }
+      },
+      "Created": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "Grant": {
         "type": "object",
         "properties": {
@@ -2330,6 +2513,10 @@
           },
           "email": {
             "type": "string"
+          },
+          "purposeUntil": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
@@ -2416,20 +2603,6 @@
           }
         }
       },
-      "Plan": {
-        "type": "object",
-        "properties": {
-          "catalog": {
-            "$ref": "#/components/schemas/Catalog"
-          },
-          "places": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/Place"
-            }
-          }
-        }
-      },
       "Scenario": {
         "type": "object",
         "properties": {
@@ -2467,6 +2640,43 @@
           },
           "redo": {
             "type": "boolean"
+          }
+        }
+      },
+      "Preview": {
+        "type": "object",
+        "properties": {
+          "cutoff": {
+            "type": "string",
+            "format": "date"
+          },
+          "scenarios": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "identities": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "absences": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notices": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "wishes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "audit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingMail": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

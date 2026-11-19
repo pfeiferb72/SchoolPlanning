@@ -1,18 +1,20 @@
 # Testbericht
 
-Stand 19. November 2026. Die Prüfung erfolgte mit OpenJDK 21, Maven 3.9, einem echten PostgreSQL-16.4-Server und Chromium unter Linux. Zur Prüfung liefen PostgreSQL und die gepackte Spring-Boot-JAR als lokale Prozesse. Das Compose- und Kubernetes-Deployment wurde in dieser Umgebung nicht gestartet.
+Stand 19. November 2026. Die Prüfung erfolgte mit OpenJDK 21, Maven 3.9, einem echten PostgreSQL-16.4-Server und Chromium unter Linux. Zur Prüfung liefen PostgreSQL und die gepackte Spring-Boot-JAR als lokale Prozesse. Der vollständige Compose-Start mit anschließendem Browsertest wurde zusätzlich in GitHub Actions erfolgreich geprüft. Der Kubernetes-Einsatz ist im Zielcluster zu erproben.
 
 | Prüfung | Ergebnis |
 |---|---|
-| `mvn clean verify` | 16 erfolgreiche JUnit-Ausführungen, keine Fehler oder übersprungenen Tests |
+| `mvn clean verify` | 18 erfolgreiche JUnit-Ausführungen bei gesetzter DB_URL, keine Fehler oder übersprungenen Tests |
 | JaCoCo, Zeilenabdeckung | Engine 169/171 (98,8 %), CatalogRules 143/146 (97,9 %). Die Build-Grenze liegt für jede der beiden Klassen bei 90 %. |
 | Fünf synthetische Schulartvarianten | Vollständige Platzierung, exakte Lehrlast und gewichteter Score ≤ 60 auf jedem kleinen Referenzraster |
 | Regelprüfungen | A/B-Rhythmus, Blockgrenzen, Überschneidungen, Kopplung und Teilung, Räume, Geräte, Teamteaching, Qualifikation, Deputat, Präsenz, Mindestpausen, Sperren, Feiertage, Prüfungskollisionen |
 | Vertretung und Kalender | Fachvertretung, Betreuung, Kapazitätsgrenzen der Zusammenlegung, Ausfall, Tagesauswahl, Sommer-/Winterzeit und iCalendar-Zeilenfaltung |
 | Browser mit laufendem Backend | Demo-Anmeldung und Rollenwechsel, Stammdatenansicht, Platzierungsdialog, CSV-Vorschau, Revisionskonflikt, Undo/Redo, Solver mit Fixierung, Workflow, getrennte Leserrechte, Vertretung, PDF/CSV/ICS/HTML, Feed, Admin-Export, OpenAPI und 360-px-Leseransicht |
-| Datenbankmigration | Erstinitialisierung inklusive Demodaten, Neustart mit vorhandenen Plänen und Migration von V1 nach V2 |
+| Datenbankmigration | Erstinitialisierung inklusive Demodaten, Neustart mit vorhandenen Plänen und Migrationen für verteilte Aufträge, Abos und Aufbewahrungsfristen |
 
 Die Coverage bezieht sich auf ausführbare Zeilen. Die Prüfung der Rollentrennung enthält unter anderem den abgelehnten Freigabeversuch eines Planers, den abgelehnten Entwurfszugriff eines Schülers und den abgelehnten Zugriff auf eine fremde Schule.
+
+Die zwei importierbaren AHS-Beispiele werden zusätzlich gegen die produktive Regelprüfung getestet. Der Integrationstest der Fristen verwendet eine echte PostgreSQL-Datenbank, zwei isolierte Testschulen und eine zurückgerollte Transaktion. Er prüft das aktivierte und deaktivierte Löschverfahren sowie die Trennung der Schulen. Ohne DB_URL überspringt Maven diesen Test.
 
 ## Synthetischer Größenversuch
 

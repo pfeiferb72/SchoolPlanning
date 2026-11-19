@@ -157,7 +157,7 @@ class Integrations {
         req.apply && errors.isEmpty());
   }
 
-  record Grant(String subject, String role, String entity, String email) {}
+  record Grant(String subject, String role, String entity, String email, LocalDate purposeUntil) {}
 
   @GetMapping(BASE + "/members")
   Object members(org.springframework.security.core.Authentication a, @PathVariable String school) {
@@ -165,7 +165,8 @@ class Integrations {
     return store
         .database()
         .queryForList(
-            "select subject,role,entity,email from membership where school_id=? order by subject",
+            "select subject,role,entity,email,purpose_until as \"purposeUntil\" from membership"
+                + " where school_id=? order by subject",
             school);
   }
 
@@ -188,19 +189,20 @@ class Integrations {
             || !g.entity.isBlank(),
         "Personen- oder Klassenkürzel erforderlich");
     require(
-        !m.actor().equals(g.subject) || g.role.equals("ADMIN"),
+        !m.actor().equals(g.subject) || (g.role.equals("ADMIN") && g.purposeUntil == null),
         "Eigenen Administrationszugang beibehalten");
     store
         .database()
         .update(
-            "insert into membership(school_id,subject,role,entity,email) values(?,?,?,?,?) on"
-                + " conflict(school_id,subject) do update set"
-                + " role=excluded.role,entity=excluded.entity,email=excluded.email",
+            "insert into membership(school_id,subject,role,entity,email,purpose_until)"
+                + " values(?,?,?,?,?,?) on conflict(school_id,subject) do update set"
+                + " role=excluded.role,entity=excluded.entity,email=excluded.email,purpose_until=excluded.purpose_until",
             school,
             g.subject,
             g.role,
             g.entity,
-            g.email);
+            g.email,
+            g.purposeUntil);
     store.audit(m, "Berechtigung geändert " + g.subject);
   }
 

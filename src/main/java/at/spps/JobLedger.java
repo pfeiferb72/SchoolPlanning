@@ -104,7 +104,8 @@ class JobLedger {
           Boolean.TRUE.equals(
               db.queryForObject(
                   "select exists(select 1 from membership where school_id=? and subject=? and"
-                      + " role='PLAN')",
+                      + " (purpose_until is null or purpose_until >= (now() at time zone"
+                      + " 'Europe/Vienna')::date) and role='PLAN')",
                   Boolean.class,
                   m.school(),
                   m.actor()));

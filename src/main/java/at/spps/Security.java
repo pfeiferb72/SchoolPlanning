@@ -91,7 +91,8 @@ class Security {
     String actor = subject(a);
     return db
         .query(
-            "select role,entity from membership where school_id=? and subject=?",
+            "select role,entity from membership where school_id=? and subject=? and (purpose_until"
+                + " is null or purpose_until >= (now() at time zone 'Europe/Vienna')::date)",
             (r, n) -> new Member(school, r.getString(1), r.getString(2), actor),
             school,
             actor)

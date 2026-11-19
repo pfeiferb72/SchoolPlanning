@@ -43,7 +43,9 @@ Den Dienst gegen die wiederhergestellte Datenbank starten. Anmelden, eine Veröf
 
 ## Offboarding und Löschung
 
-Für das Offboarding liefert die Administration ein JSON-Archiv mit Schul-, Plan-, Versions-, Kommunikations- und Berechtigungsdaten. Nach Freigabe und Sicherung kann der Datenbankbetreiber den betreffenden Schuleintrag transaktional löschen. Die Fremdschlüssel entfernen die abhängigen Datensätze. Die Aufbewahrungsregel muss auch Backups und freigegebene externe Kopien umfassen. Für die selektive personenbezogene Löschung in historischen Fassungen ist ein geprüftes Betriebskonzept erforderlich.
+Für das Offboarding liefert die Administration ein JSON-Archiv mit Schul-, Plan-, Versions-, Kommunikations- und Berechtigungsdaten. Nach Freigabe und Sicherung kann der Datenbankbetreiber den betreffenden Schuleintrag transaktional löschen. Die Fremdschlüssel entfernen die abhängigen Datensätze. Die Aufbewahrungsregel muss auch Backups und freigegebene externe Kopien umfassen. Unter **Administration → Aufbewahrung** kann der Administrator eine schulbezogene Frist in Tagen einstellen. Die Vorschau zeigt die aktuell betroffenen Daten. Ohne konfigurierte Frist bleibt die automatische Bereinigung ausgeschaltet. Der Dienst prüft täglich um 03:15 Uhr Wiener Zeit. Semesterende plus Frist steuert die Löschung ganzer Szenarien samt Historie, Veröffentlichungen und Vertretungen. Für Abwesenheiten zählt das Abwesenheitsdatum, für Nachrichten, Wünsche und Protokolle der Erstellungszeitpunkt.
+
+Im Benutzerformular endet der Zugriff mit dem hinterlegten Zweckende. Nach Ablauf der zusätzlichen Aufbewahrungsfrist entfernt die Bereinigung die Mitgliedschaft samt Inbox, offenen E-Mails und persönlichen Lehrerfeeds. Die strukturierten Autorenfelder werden anonymisiert. Die Entfernung einzelner Personen aus weiterhin aufzubewahrenden historischen Plänen und frei eingegebenen Texten erfordert eine fachliche Einzelfallentscheidung. Entfernte Konten sind auch beim IdP und bei der initialen ADMIN_SUB-Konfiguration zu berücksichtigen.
 
 ## Kubernetes
 

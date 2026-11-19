@@ -22,6 +22,15 @@ docker compose start
 
 PostgreSQL speichert die Daten im benannten Volume `schooldata`. Der Compose-Einstieg ist eine lokale Demo mit frei wählbaren Rollen. Für Schulbetrieb stehen ein eigenes OIDC-Profil und eine getrennte Betriebsanleitung bereit.
 
+## Beispiel für eine AHS-Unterstufe
+
+30 Lehrkräfte, 200 Schüler und acht Klassen (1A bis 4B). Unter **Wochenplan → Szenario importieren** stehen beide JSON-Dateien zum Download. Jede Datei erzeugt beim Import einen neuen Entwurf. Der Referenzplan belegt alle 248 Klassenwochenstunden.
+
+- [Komplettes Beispielpaket mit PDF, CSV und beiden Szenarien herunterladen](https://raw.githubusercontent.com/pfeiferb72/SchoolPlanning/main/src/main/resources/static/examples/AHS_Unterstufe_Beispiele.zip)
+- [Planungsstart herunterladen](https://raw.githubusercontent.com/pfeiferb72/SchoolPlanning/main/src/main/resources/static/examples/01-planungsstart.json)
+- [Vollständigen Referenzplan herunterladen](https://raw.githubusercontent.com/pfeiferb72/SchoolPlanning/main/src/main/resources/static/examples/02-referenzplan.json)
+- [Stundentafel und Übungsfälle](docs/AHS-BEISPIELE.md)
+
 ## Erster Durchlauf
 
 1. Im **Wochenplan** einen offenen Block anklicken oder auf eine Rasterzelle ziehen. Raum und Lehrkraft wählen. Eine unzulässige Platzierung wird mit Ursache angezeigt.

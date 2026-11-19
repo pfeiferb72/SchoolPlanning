@@ -32,6 +32,7 @@ final class Engine {
   final Map<String, Group> groups;
   final Map<String, Room> rooms;
   final Map<String, Unit> lessons = new LinkedHashMap<>();
+  final Map<String, Place> bandTimes = new HashMap<>();
   final Map<String, List<Room>> suitableRooms = new HashMap<>();
   final Map<String, List<String>> classKeys = new HashMap<>();
   final Map<Day, Integer> occupied = new HashMap<>(),
@@ -127,6 +128,9 @@ final class Engine {
     Course a = u.course();
     if (p.day() < 1 || p.day() > 5 || p.slot() < 0 || p.slot() + a.block() > c.slots.size())
       return "Außerhalb des Zeitrasters";
+    Place partner = bandTimes.get(u.bandBlock());
+    if (partner != null && (p.day() != partner.day() || p.slot() != partner.slot()))
+      return "Parallelband " + a.parallelBand() + " muss zur selben Zeit stattfinden";
     Room r = rooms.get(p.room());
     if (r == null
         || r.capacity() < a.groups().stream().mapToInt(g -> groups.get(g).size()).sum()
@@ -208,6 +212,7 @@ final class Engine {
 
   void apply(Unit u, Place p) {
     var a = u.course();
+    if (!u.bandBlock().isEmpty()) bandTimes.putIfAbsent(u.bandBlock(), p);
     penalties = penalties.plus(delta(u, p));
     for (String t : p.teachers()) load.merge(t, cycleLoad(a), Integer::sum);
     for (int w = 0; w < 2; w++)

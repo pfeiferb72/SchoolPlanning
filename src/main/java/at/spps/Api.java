@@ -150,8 +150,19 @@ class Api {
                 && old.room().equals(move.place.room())
                 && old.teachers().equals(move.place.teachers()),
         "Fixierung zuerst lösen");
-    require(
-        units(p.catalog).stream().anyMatch(u -> u.id().equals(move.lesson)), "Unbekannte Stunde");
+    var units = units(p.catalog);
+    var unit = units.stream().filter(u -> u.id().equals(move.lesson)).findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("Unbekannte Stunde"));
+    if (old != null && move.place != null && !unit.bandBlock().isEmpty()
+        && (old.day() != move.place.day() || old.slot() != move.place.slot())) {
+      for (var other : units) {
+        var partner = p.places.get(other.id());
+        if (partner == null || other.equals(unit) || !other.bandBlock().equals(unit.bandBlock())) continue;
+        require(!partner.fixed(), "Fixierung im Parallelband zuerst lösen: " + other.id());
+        p.places.put(other.id(), new Place(move.place.day(), move.place.slot(), partner.room(),
+            partner.teachers(), false));
+      }
+    }
     if (move.place == null) p.places.remove(move.lesson);
     else p.places.put(move.lesson, move.place);
     var metrics = Engine.inspect(p).metrics(p);
@@ -295,7 +306,20 @@ class Api {
       @RequestParam(defaultValue = "group") String scope,
       @RequestParam(defaultValue = "") String entity)
       throws IOException {
-    return Exports.render(views.events(member(a, school), from, until, scope, entity), fmt, school);
+    var m = member(a, school);
+    if (fmt.equals("wochenplan.pdf"))
+      return WeekSheet.download(views.weeks(m, from, until, scope, entity));
+    return Exports.render(views.events(m, from, until, scope, entity), fmt, school);
+  }
+
+  @GetMapping(PLAN + "/wochenplan.pdf")
+  ResponseEntity<byte[]> weekPdf(Authentication a, @PathVariable String school, @PathVariable UUID id,
+      @RequestParam String week, @RequestParam(defaultValue = "") String group,
+      @RequestParam(defaultValue = "") String teacher, @RequestParam(defaultValue = "") String room,
+      @RequestParam(defaultValue = "") String subject) throws IOException {
+    var m = member(a, school);
+    m.allow("PLAN", "DIRECTION", "OFFICE");
+    return WeekSheet.download(List.of(WeekSheet.scenario(store.get(m, id, false), week, group, teacher, room, subject)));
   }
 
   @GetMapping(BASE + "/notices")

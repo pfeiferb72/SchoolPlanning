@@ -52,7 +52,17 @@ public final class Model {
       int block,
       String week,
       List<String> equipment,
-      List<String> resources) {}
+      List<String> resources,
+      String parallelBand) {
+    public Course {
+      parallelBand = parallelBand == null ? "" : parallelBand.strip();
+    }
+
+    public Course(String id, String subject, List<String> groups, List<String> teachers,
+        int hours, int block, String week, List<String> equipment, List<String> resources) {
+      this(id, subject, groups, teachers, hours, block, week, equipment, resources, "");
+    }
+  }
 
   public record Booking(
       String id, String resource, LocalDate from, LocalDate until, int first, int last) {}
@@ -76,7 +86,17 @@ public final class Model {
 
   public record Place(int day, int slot, String room, List<String> teachers, boolean fixed) {}
 
-  public record Unit(String id, Course course) {}
+  public record Unit(String id, Course course) {
+    String bandBlock() {
+      return course.parallelBand().isEmpty() ? "" : course.parallelBand() + id.substring(id.lastIndexOf('#'));
+    }
+  }
+
+  static boolean groupMatches(Map<String, Group> groups, String selected, List<String> taught) {
+    var group = groups.get(selected);
+    return group != null && taught.stream()
+        .anyMatch(id -> !Collections.disjoint(group.cohorts(), groups.get(id).cohorts()));
+  }
 
   public static class Catalog {
     public String schoolType = "AHS", year = "2026/27", semester = "Wintersemester";

@@ -79,6 +79,7 @@ final class CatalogRules {
       require(r.capacity() > 0 && distinct(r.equipment()), "Raumdaten prüfen");
     }
     for (var s : c.students) refs(s.groups(), groups.keySet());
+    var bands = new HashMap<String, List<Course>>();
     for (var a : c.courses) {
       refs(a.groups(), groups.keySet());
       refs(a.teachers(), teachers.keySet());
@@ -98,6 +99,21 @@ final class CatalogRules {
       for (String g : a.groups())
         for (String k : groups.get(g).cohorts())
           require(cohorts.add(k), "Überlappende Gruppen in Kopplung");
+      if (!a.parallelBand().isEmpty()) {
+        require(a.parallelBand().matches("[\\p{L}\\p{N}_.-]{1,80}"), "Ungültiges Parallelband-Kürzel");
+        var partners = bands.computeIfAbsent(a.parallelBand(), k -> new ArrayList<>());
+        for (var b : partners) {
+          require(a.hours() == b.hours() && a.block() == b.block() && a.week().equals(b.week()),
+              "Parallelband " + a.parallelBand() + " braucht gleiche Wochenstunden, Blocklänge und Rhythmus");
+          require(b.groups().stream().noneMatch(g -> groupMatches(groups, g, a.groups()))
+                  && Collections.disjoint(a.teachers(), b.teachers())
+                  && Collections.disjoint(a.resources(), b.resources())
+                  && c.students.stream().noneMatch(s -> !Collections.disjoint(s.groups(), a.groups())
+                      && !Collections.disjoint(s.groups(), b.groups())),
+              "Teilgruppen, Schüler, Lehrkräfte oder Geräte im Parallelband überschneiden sich");
+        }
+        partners.add(a);
+      }
     }
     for (var b : c.bookings) {
       range(b.from(), b.until());

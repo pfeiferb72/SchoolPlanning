@@ -1,4 +1,5 @@
 import { api, effects, days } from "./common.js";
+import SplitClass from "./split.js";
 const model = {
   subjects: ["Fächer", { id: "Kürzel", name: "Bezeichnung" }],
   groups: [
@@ -50,6 +51,7 @@ const model = {
       hours: "Stunden je aktiver Woche",
       block: "Blocklänge",
       week: "Wochenrhythmus",
+      parallelBand: "Parallelband (optional)",
       equipment: "Ausstattung",
       resources: "Geräte",
     },
@@ -128,6 +130,7 @@ function parseWin(s) {
 }
 const clone = (x) => JSON.parse(JSON.stringify(x));
 export default {
+  components: { SplitClass },
   props: ["snap", "base", "school"],
   emits: ["changed", "error"],
   data: () => ({
@@ -135,6 +138,7 @@ export default {
     effects,
     tab: "subjects",
     row: null,
+    splitting: null,
     idx: -1,
     settings: null,
     importText: "",
@@ -187,6 +191,7 @@ export default {
     },
     select(k) {
       this.tab = k;
+      this.splitting = null;
       this.row = null;
       this.report = null;
       this.importText = "";
@@ -288,12 +293,17 @@ export default {
       }
       this.row = r;
     },
+    canSplit(g) {
+      return g.size > 1 && g.cohorts.length === 1 && !this.c.groups.some(other =>
+        other.id !== g.id && other.cohorts.includes(g.cohorts[0]));
+    },
     async persist(c, msg) {
       await api(this.path + "/catalog", "PUT", {
         revision: this.s.revision,
         catalog: c,
       });
       this.row = null;
+      this.splitting = null;
       this.$emit("changed", msg);
     },
     async saveRow() {
@@ -365,10 +375,11 @@ export default {
     },
   },
   template: `<section class="panel"><div class="tabs"><button v-for="(v,k) in model" :class="{on:k===tab}" @click="select(k)">{{v[0]}}</button><button @click="select('settings')" :class="{on:tab==='settings'}">Planungsregeln</button><button @click="select('templates')" :class="{on:tab==='templates'}">Stundentafeln</button></div>
- <template v-if="model[tab]"><div class="workspace-head"><h2>{{model[tab][0]}}</h2><button v-if="editable" class="primary" @click="edit(-1)">＋ Hinzufügen</button></div><input v-model="search" aria-label="Einträge durchsuchen" placeholder="Einträge durchsuchen"><div class="grid-scroll"><table class="data"><thead><tr><th v-for="(label,k) in fields">{{label}}</th><th v-if="editable">Aktion</th></tr></thead><tbody><tr v-for="x in rows"><td v-for="(label,k) in fields">{{display(x.r[k],k)||'–'}}</td><td v-if="editable"><button @click="edit(x.i)">Ändern</button> <button @click="remove(x.i)">Entfernen</button></td></tr></tbody></table></div><p v-if="!rows.length">Keine Einträge.</p>
+ <template v-if="model[tab]"><div class="workspace-head"><h2>{{model[tab][0]}}</h2><button v-if="editable" class="primary" @click="edit(-1)">＋ Hinzufügen</button></div><input v-model="search" aria-label="Einträge durchsuchen" placeholder="Einträge durchsuchen"><div class="grid-scroll"><table class="data"><thead><tr><th v-for="(label,k) in fields">{{label}}</th><th v-if="editable">Aktion</th></tr></thead><tbody><tr v-for="x in rows"><td v-for="(label,k) in fields">{{display(x.r[k],k)||'–'}}</td><td v-if="editable"><button @click="edit(x.i)">Ändern</button> <button @click="remove(x.i)">Entfernen</button> <button v-if="tab==='groups'&&canSplit(x.r)" @click="splitting=x.r">Klasse teilen</button></td></tr></tbody></table></div><p v-if="!rows.length">Keine Einträge.</p>
+ <split-class v-if="splitting" :catalog="c" :group="splitting" @close="splitting=null" @save="c=>act(()=>persist(c,'Teilgruppen und Parallelunterricht angelegt.'))"></split-class>
  <details v-if="fields.id&&editable"><summary>CSV-Abgleich und Export</summary><p><a :href="path+'/master/'+tab+'.csv'">CSV mit Spaltenvorlage herunterladen</a></p><label>CSV-Datei<input type="file" accept=".csv,text/csv" @change="async e=>{if(e.target.files[0]){importText=await e.target.files[0].text();report=null}}"></label><button :disabled="!importText" @click="importCsv(false)">Abgleich prüfen</button> <button v-if="report&&!report.applied&&!report.errors.length" @click="importCsv(true)">Import übernehmen</button><p v-if="report">{{report.added}} neu · {{report.updated}} geändert · {{report.unchanged}} identisch</p><p class="alert" v-for="e in report?.errors">{{e}}</p></details>
  <div class="overlay" v-if="row" @keydown.esc="row=null"><form class="dialog" @submit.prevent="saveRow"><button type="button" class="right" @click="row=null">Schließen</button><h2>{{model[tab][0]}} bearbeiten</h2><div class="fields"><label v-for="(label,k) in fields">{{label}}
- <select v-if="['ref','pick'].includes(type(k))" v-model="row[k]" :multiple="many(k)"><option v-if="!many(k)" value="">Auswählen</option><option v-for="o in options(k)" :value="o.id">{{o.name}}</option></select><input v-else :type="type(k)==='window'?'text':type(k)" v-model="row[k]" :required="['id','name','from','until','date','start','end'].includes(k)" :placeholder="type(k)==='window'?'Tag/Stunde/Woche, z. B. 1/2/AB':many(k)?'Mit Komma trennen':''"></label></div><p v-if="tab==='groups'">Gemeinsame Teilgruppenkürzel sperren gleichzeitigen Unterricht. Getrennte Teilgruppen können parallel stattfinden.</p><button class="primary">Speichern</button></form></div></template>
+ <select v-if="['ref','pick'].includes(type(k))" v-model="row[k]" :multiple="many(k)"><option v-if="!many(k)" value="">Auswählen</option><option v-for="o in options(k)" :value="o.id">{{o.name}}</option></select><input v-else :type="type(k)==='window'?'text':type(k)" v-model="row[k]" :required="['id','name','from','until','date','start','end'].includes(k)" :placeholder="type(k)==='window'?'Tag/Stunde/Woche, z. B. 1/2/AB':many(k)?'Mit Komma trennen':''"></label></div><p v-if="tab==='groups'">Gemeinsame Teilgruppenkürzel sperren gleichzeitigen Unterricht. Getrennte Teilgruppen können parallel stattfinden.</p><p v-if="tab==='courses'">Trage für zeitgleichen Unterricht in getrennten Gruppen bei beiden Kursen dasselbe Parallelband-Kürzel ein. Wochenstunden, Blocklänge und Wochenrhythmus müssen übereinstimmen.</p><button class="primary">Speichern</button></form></div></template>
  <form v-if="tab==='settings'&&settings" @submit.prevent="saveSettings"><h2>Planungsregeln</h2><fieldset :disabled="!editable"><div class="fields"><label>Schulart<select v-model="settings.schoolType"><option v-for="x in ['VS','MS','AHS','BHS/BMS','BS']">{{x}}</option></select></label><label>Schuljahr<input v-model="settings.year"></label><label>Semester<input v-model="settings.semester"></label><label>Beginn<input type="date" v-model="settings.from"></label><label>Ende<input type="date" v-model="settings.until"></label><label>Gerätepool<input v-model="settings.resources" placeholder="Kürzel, mit Komma getrennt"></label><label>Schulweite Sperren<input v-model="settings.blocked" placeholder="Tag/Stunde/Woche"></label><label>Max. Stunden am Stück<input type="number" min="1" v-model.number="settings.maxConsecutive"></label><label>Mindestpause (Minuten)<input type="number" min="0" v-model.number="settings.breakMinutes"></label></div><h3>Gewichte für Strafpunkte</h3><button type="button" @click="preset">Planungsvorlage für {{settings.schoolType}} einsetzen</button><div class="fields"><label v-for="(v,k) in effects">{{v}}<input type="number" min="0" max="1000" v-model.number="settings.weights[k]"></label></div><label>Vertretungskaskade<input v-model="settings.coverOrder"></label><label><input type="checkbox" v-model="settings.balanceCover"> Vertretungskonto bei Vorschlägen berücksichtigen</label><label><input type="checkbox" v-model="settings.preferRemainingLoad"> Restverpflichtung der Planwoche bevorzugen</label><button v-if="editable" class="primary">Regeln speichern</button></fieldset></form>
  <section v-if="tab==='templates'"><h2>Stundentafeln</h2><form v-if="editable" @submit.prevent="makeTpl"><h3>Aus bestehendem Unterricht ableiten</h3><div class="fields"><label>Bezeichnung<input required v-model="tplName"></label><label>Quellgruppe<select required v-model="tplGroup"><option v-for="g in c.groups" :value="g.id">{{g.name}}</option></select></label></div><button>Vorlage speichern</button></form><form v-if="editable&&templates.length" @submit.prevent="useTpl"><h3>Unterricht erzeugen</h3><div class="fields"><label>Stundentafel<select required v-model="tplId"><option v-for="t in templates.filter(t=>t.school_type===c.schoolType)" :value="t.id">{{t.name}}</option></select></label><label>Kurspräfix<input required v-model="prefix"></label><label>Zielgruppen (gekoppelt)<select required multiple v-model="tplTargets"><option v-for="g in c.groups" :value="g.id">{{g.name}}</option></select></label></div><button>Veranstaltungen erzeugen</button></form><p v-if="!templates.length">Noch keine Stundentafel hinterlegt.</p></section></section>`,
 };

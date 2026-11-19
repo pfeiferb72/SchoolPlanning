@@ -27,6 +27,23 @@ class Views {
   }
 
   List<Event> events(Member m, LocalDate from, LocalDate until, String scope, String entity) {
+    return events(m, from, until, scope, entity, null);
+  }
+
+  Collection<WeekSheet> weeks(Member m, LocalDate from, LocalDate until, String scope, String entity) {
+    CatalogRules.range(from, until);
+    require(!until.isAfter(from.plusYears(2)), "Zeitraum zu lang");
+    var sheets = new LinkedHashMap<LocalDate, WeekSheet>();
+    for (var monday = WeekSheet.monday(from); !monday.isAfter(until); monday = monday.plusWeeks(1)) {
+      String title = "Woche ab " + monday.format(WeekSheet.DATE) + (entity.isBlank() ? "" : " · " + entity);
+      sheets.put(monday, new WeekSheet(title, monday));
+    }
+    events(m, from, until, scope, entity, sheets);
+    return sheets.values();
+  }
+
+  private List<Event> events(Member m, LocalDate from, LocalDate until, String scope, String entity,
+      Map<LocalDate, WeekSheet> sheets) {
     CatalogRules.range(from, until);
     require(!until.isAfter(from.plusYears(2)), "Zeitraum zu lang");
     var pubs =
@@ -71,7 +88,10 @@ class Views {
       for (var date = from.isAfter(c.from) ? from : c.from;
           !date.isAfter(until) && !date.isAfter(c.until);
           date = date.plusDays(1)) {
-        if (!covered.add(date) || !teachingDate(c, date)) continue;
+        if (!covered.add(date)) continue;
+        var sheet = sheets == null ? null : sheets.get(WeekSheet.monday(date));
+        if (sheet != null) sheet.timetable(c);
+        if (!teachingDate(c, date)) continue;
         int w = week(c, date), day = date.getDayOfWeek().getValue();
         for (var x : plan.places.entrySet()) {
           var p = x.getValue();
@@ -85,7 +105,7 @@ class Views {
             if (!status.equals("Ausfall")) status = v.kind();
             if (!v.target().isBlank()) room = plan.places.get(v.target()).room();
           }
-          if (!visible(m, a.groups(), teachers, p.teachers(), student)) continue;
+          if (!visible(engine.groups, m, a.groups(), teachers, p.teachers(), student)) continue;
           var event =
               new Event(
                   x.getKey() + "-" + date,
@@ -97,7 +117,10 @@ class Views {
                   teachers,
                   room,
                   status);
-          if (matches(event, scope, entity)) out.add(event);
+          if (matches(engine.groups, event, scope, entity)) {
+            if (sheet == null) out.add(event);
+            else sheet.lesson(c, a, p, teachers, room, status);
+          }
         }
         for (var e : c.exams)
           if (e.date().equals(date)) {
@@ -109,7 +132,7 @@ class Views {
                     .toList();
             if ((m.role().equals("STUDENT") || m.role().equals("GUARDIAN"))
                 && !e.candidates().contains(m.entity())) continue;
-            if (!visible(m, examGroups, e.teachers(), e.teachers(), student)) continue;
+            if (!visible(engine.groups, m, examGroups, e.teachers(), e.teachers(), student)) continue;
             var event =
                 new Event(
                     "exam-" + e.id() + "-" + date,
@@ -121,7 +144,10 @@ class Views {
                     e.teachers(),
                     e.room(),
                     "Prüfung");
-            if (matches(event, scope, entity)) out.add(event);
+            if (matches(engine.groups, event, scope, entity)) {
+              if (sheet == null) out.add(event);
+              else sheet.exam(event);
+            }
           }
       }
     }
@@ -131,24 +157,24 @@ class Views {
   }
 
   boolean visible(
-      Member m,
+      Map<String, Group> known, Member m,
       List<String> groups,
       List<String> teachers,
       List<String> original,
       Optional<Student> student) {
     return switch (m.role()) {
       case "TEACHER" -> teachers.contains(m.entity()) || original.contains(m.entity());
-      case "CURATOR" -> groups.contains(m.entity());
+      case "CURATOR" -> groupMatches(known, m.entity(), groups);
       case "STUDENT", "GUARDIAN" ->
           student.isPresent() && !Collections.disjoint(groups, student.get().groups());
       default -> m.full();
     };
   }
 
-  boolean matches(Event e, String scope, String entity) {
+  boolean matches(Map<String, Group> known, Event e, String scope, String entity) {
     if (entity == null || entity.isBlank()) return true;
     return switch (scope) {
-      case "group" -> e.groups.contains(entity);
+      case "group" -> groupMatches(known, entity, e.groups);
       case "teacher" -> e.teachers.contains(entity);
       case "room" -> e.room.equals(entity);
       case "subject" -> e.subject.equals(entity);

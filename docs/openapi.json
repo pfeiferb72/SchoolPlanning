@@ -1101,6 +1101,90 @@
         }
       }
     },
+    "/api/v1/schools/{school}/scenarios/{id}/wochenplan.pdf": {
+      "get": {
+        "tags": [
+          "api"
+        ],
+        "operationId": "weekPdf",
+        "parameters": [
+          {
+            "name": "school",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "week",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          },
+          {
+            "name": "teacher",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          },
+          {
+            "name": "room",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          },
+          {
+            "name": "subject",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/schools/{school}/scenarios/{id}/suggestions": {
       "get": {
         "tags": [
@@ -1917,6 +2001,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "parallelBand": {
+            "type": "string"
           }
         }
       },

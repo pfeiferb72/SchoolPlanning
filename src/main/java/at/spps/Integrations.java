@@ -111,14 +111,21 @@ class Integrations {
             .setSkipHeaderRecord(true)
             .get()
             .parse(new StringReader(req.csv.replaceFirst("^\uFEFF", "")))) {
+      var expected = new HashSet<>(Arrays.stream(fields).map(f -> f.getName()).toList());
+      boolean legacyCourses = type.equals("courses") && !parser.getHeaderNames().contains("parallelBand");
+      if (legacyCourses) expected.remove("parallelBand");
       require(
-          new HashSet<>(parser.getHeaderNames())
-              .equals(new HashSet<>(Arrays.stream(fields).map(f -> f.getName()).toList())),
+          new HashSet<>(parser.getHeaderNames()).equals(expected),
           "Spalten stimmen nicht mit der CSV-Vorlage überein");
       for (var r : parser) {
         try {
           ObjectNode node = json.createObjectNode();
           for (var f : fields) {
+            if (legacyCourses && f.getName().equals("parallelBand")) {
+              var old = rows.get(r.get("id"));
+              node.put("parallelBand", old == null ? "" : old.path("parallelBand").asText(""));
+              continue;
+            }
             var raw = r.get(f.getName());
             if (f.getType().equals(List.class) || f.getType().equals(int.class))
               node.set(f.getName(), json.readTree(raw));

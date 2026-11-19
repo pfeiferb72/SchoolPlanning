@@ -10,6 +10,20 @@ Bei Sperr- und Wunschfenstern bedeutet beispielsweise `1/2/AB, 5/1/B` Montag zwe
 
 Änderungen an Stammdaten werden zusammen mit den vorhandenen Platzierungen geprüft. Entferne betroffene Platzierungen bei einem Konflikt vor der Änderung. Lege für alternative Entwürfe ein neues Szenario auf Basis eines vorhandenen Plans an. Beim Kopieren mit neuem Semesterzeitraum werden datumsgebundene Ferien, Reservierungen und Prüfungen neu erfasst.
 
+## Klasse für zwei Fächer teilen
+
+Wähle unter **Stammdaten → Klassen & Gruppen** bei einer ungeteilten Klasse **Klasse teilen**. Wähle beispielsweise Griechisch und Französisch, gib die Größe der ersten Gruppe sowie die gemeinsamen Wochenstunden an. Die zweite Gruppe erhält die restlichen Plätze. Bereits erfasste Schüler kannst du sofort ihrem Fach zuordnen oder die Zugehörigkeit später unter **Schüler** ergänzen. Für den persönlichen Plan bleiben die Schüler der Gesamtklasse und ihrer gewählten Teilgruppe zugeordnet.
+
+Beim Speichern entstehen zwei Teilgruppen und zwei Kurse mit demselben **Parallelband**. Im Bereich **Unterricht** kannst du je Kurs Lehrkräfte, Ausstattung oder Geräte vorgeben. Für bestehende Teilgruppen trägst du das gemeinsame Bandkürzel direkt bei den Kursen ein. Alle Kurse eines Bandes brauchen dieselbe Stundenzahl, Blocklänge und denselben Wochenrhythmus. Die Gesamtklasse muss die Teilgruppenkürzel beider Gruppen im Feld **Teilgruppen** enthalten.
+
+Der Solver plant die zusammengehörigen Blöcke gleichzeitig in verschiedenen Räumen. Im Klassenraster erscheinen beide Fächer im selben Zeitfeld. Verschiebst du einen bereits platzierten Block, verschiebt der Planer seine platzierten Partner mit. Eine Fixierung oder Kollision verhindert die gesamte Verschiebung.
+
+## Grafischen Wochenplan exportieren
+
+Wähle im **Planungsraster** Woche A oder B und bei Bedarf Klasse, Lehrkraft, Raum oder Fach. **Wochenplan als PDF** exportiert diese Auswahl im Querformat mit Montag bis Freitag, Stundenbeginn und farbigen Fachfeldern. Auch ein Entwurf lässt sich so exportieren.
+
+Unter **Veröffentlichungen** nutzt **Wochenplan als PDF** den eingestellten Datumsbereich und die gewählte Ansicht. Jede Kalenderwoche beginnt auf einer neuen Seite. Prüfungen, veröffentlichte Vertretungen und Ausfälle erscheinen im Raster. **Terminliste als PDF**, CSV, HTML und Kalenderexport bleiben über die benachbarten Links erreichbar.
+
 ## Schulleitung
 
 Öffne eine Variante im Status **In Prüfung**. Prüfe Vollständigkeit, Strafpunkte und Unterschiede zu einer anderen Variante. Verwende **Zur Überarbeitung**, wenn Anpassungen erforderlich sind. Nach der Freigabe kann die Schulleitung oder Planung veröffentlichen. Erscheint kein Plan für ein Datum, kontrolliere zuerst Semesterzeitraum und Ferien.

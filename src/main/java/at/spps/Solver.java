@@ -93,9 +93,9 @@ class Solver {
       }
   }
 
-  static boolean selected(Unit u, Place p, Request r) {
+  static boolean selected(Engine e, Unit u, Place p, Request r) {
     var a = u.course();
-    return (r.group() == null || a.groups().contains(r.group()))
+    return (r.group() == null || groupMatches(e.groups, r.group(), a.groups()))
         && (r.teacher() == null
             || a.teachers().contains(r.teacher())
             || (p != null && p.teachers().contains(r.teacher()))
@@ -109,13 +109,22 @@ class Solver {
       var orig = Engine.inspect(origin);
       var best = new LinkedHashMap<>(origin.places);
       int cost = orig.penalties.total();
-      var movable = new ArrayList<Unit>();
-      var base = new LinkedHashMap<String, Place>();
+      var bundles = new LinkedHashMap<String, List<Unit>>();
       for (var u : orig.lessons.values()) {
-        var p = origin.places.get(u.id());
-        if ((p != null && p.fixed()) || !selected(u, p, req)) {
-          if (p != null) base.put(u.id(), p);
-        } else movable.add(u);
+        String key = u.bandBlock().isEmpty() ? "course/" + u.id() : "band/" + u.bandBlock();
+        bundles.computeIfAbsent(key, k -> new ArrayList<>()).add(u);
+      }
+      var movable = new ArrayList<List<Unit>>();
+      var base = new LinkedHashMap<String, Place>();
+      for (var bundle : bundles.values()) {
+        boolean included = bundle.stream().anyMatch(u -> selected(orig, u, origin.places.get(u.id()), req));
+        var pending = new ArrayList<Unit>();
+        for (var u : bundle) {
+          Place p = origin.places.get(u.id());
+          if (included && (p == null || (!p.fixed() && selected(orig, u, p, req)))) pending.add(u);
+          else if (p != null) base.put(u.id(), p);
+        }
+        if (!pending.isEmpty()) movable.add(pending);
       }
       var random = new Random(2026);
       for (int pass = 0; pass < 512 && System.nanoTime() < end && !j.cancelled.get(); pass++) {
@@ -125,16 +134,28 @@ class Solver {
         if (pass == 0 && !req.empty()) trial.places.putAll(origin.places);
         var e = Engine.inspect(trial);
         Collections.shuffle(movable, random);
-        movable.sort(Comparator.comparingInt((Unit u) -> u.course().block()).reversed());
-        for (var u : movable) {
-          if (trial.places.containsKey(u.id())) continue;
+        movable.sort(Comparator.comparingInt((List<Unit> b) -> b.getFirst().course().block()).reversed());
+        for (var bundle : movable) {
+          var pending = bundle.stream().filter(u -> !trial.places.containsKey(u.id())).toList();
+          if (pending.isEmpty()) continue;
           if (System.nanoTime() >= end || j.cancelled.get()) break;
-          var choices = choices(e, u, req.day(), req.teacher(), random, end, j.cancelled, 1);
-          if (!choices.isEmpty()) {
-            Place p = choices.getFirst();
+          Map<Unit, Place> placements;
+          if (pending.size() == 1) {
+            var u = pending.getFirst();
+            String filter = selected(orig, u, origin.places.get(u.id()), req) ? req.teacher() : null;
+            var choices = choices(e, u, req.day(), filter, random, end, j.cancelled, 1);
+            placements = choices.isEmpty() ? Map.of() : Map.of(u, choices.getFirst());
+          } else {
+            var preferred = pending.stream()
+                .filter(u -> selected(orig, u, origin.places.get(u.id()), req))
+                .sorted(Comparator.comparing(u -> u.course().teachers().isEmpty()))
+                .findFirst().orElse(null);
+            placements = parallelChoices(e, pending, req.day(), preferred, req.teacher(), random, end, j.cancelled);
+          }
+          placements.forEach((u, p) -> {
             trial.places.put(u.id(), p);
             e.apply(u, p);
-          }
+          });
         }
         if (trial.places.size() > best.size()
             || (trial.places.size() == best.size() && e.penalties.total() < cost)) {
@@ -163,6 +184,59 @@ class Solver {
     }
   }
 
+  // Try each common time. At a given time, backtrack over room and teacher
+  // assignments so a flexible course can leave a specialist room for its partner.
+  static Map<Unit, Place> parallelChoices(Engine e, List<Unit> units, Integer onlyDay,
+      Unit preferred, String teacher, Random rng, long end, AtomicBoolean cancel) {
+    Map<Unit, Place> best = Map.of();
+    int bestScore = Integer.MAX_VALUE;
+    var times = new ArrayList<Integer>();
+    for (int day = 1; day <= 5; day++)
+      if (onlyDay == null || onlyDay == day)
+        for (int slot = 0; slot + units.getFirst().course().block() <= e.c.slots.size(); slot++)
+          times.add(day * 32 + slot);
+    Collections.shuffle(times, rng);
+    for (int time : times) {
+      if (System.nanoTime() >= end || cancel.get()) break;
+      var options = new LinkedHashMap<Unit, List<Place>>();
+      for (var u : units) {
+        var places = candidates(e, u, time / 32, time % 32, u.equals(preferred) ? teacher : null,
+            rng, end, cancel, Integer.MAX_VALUE);
+        if (places.isEmpty()) break;
+        options.put(u, places);
+      }
+      if (options.size() != units.size()) continue;
+      var ordered = units.stream().sorted(Comparator.comparingInt(u -> options.get(u).size())).toList();
+      var result = new LinkedHashMap<Unit, Place>();
+      if (assign(ordered, options, result, new HashSet<>(), new HashSet<>(), end, cancel)) {
+        int score = result.entrySet().stream().mapToInt(x -> e.delta(x.getKey(), x.getValue()).total()).sum();
+        if (score < bestScore) {
+          best = result;
+          bestScore = score;
+        }
+      }
+    }
+    return best;
+  }
+
+  private static boolean assign(List<Unit> units, Map<Unit, List<Place>> options,
+      Map<Unit, Place> result, Set<String> rooms, Set<String> teachers, long end, AtomicBoolean cancel) {
+    if (result.size() == units.size()) return true;
+    Unit u = units.get(result.size());
+    for (Place p : options.get(u)) {
+      if (System.nanoTime() >= end || cancel.get()) return false;
+      if (rooms.contains(p.room()) || !Collections.disjoint(teachers, p.teachers())) continue;
+      result.put(u, p);
+      rooms.add(p.room());
+      teachers.addAll(p.teachers());
+      if (assign(units, options, result, rooms, teachers, end, cancel)) return true;
+      result.remove(u);
+      rooms.remove(p.room());
+      teachers.removeAll(p.teachers());
+    }
+    return false;
+  }
+
   record Candidate(Place place, int score, double tie) {}
 
   static List<Place> choices(
@@ -174,6 +248,11 @@ class Solver {
       long deadline,
       AtomicBoolean cancel,
       int count) {
+    return candidates(e, u, onlyDay, null, teacher, rng, deadline, cancel, count);
+  }
+
+  private static List<Place> candidates(Engine e, Unit u, Integer onlyDay, Integer onlySlot,
+      String teacher, Random rng, long deadline, AtomicBoolean cancel, int count) {
     List<List<String>> teams = new ArrayList<>();
     if (!u.course().teachers().isEmpty()) teams.add(u.course().teachers());
     else
@@ -184,7 +263,7 @@ class Solver {
     var best = new PriorityQueue<Candidate>(order.reversed());
     for (int d = 1; d <= 5; d++)
       if (onlyDay == null || onlyDay == d)
-        for (int s = 0; s <= e.c.slots.size() - u.course().block(); s++)
+        for (int s = onlySlot == null ? 0 : onlySlot; s <= (onlySlot == null ? e.c.slots.size() - u.course().block() : onlySlot); s++)
           for (var room : e.suitableRooms.get(u.course().id()))
             for (var team : teams) {
               if (System.nanoTime() >= deadline || cancel.get())

@@ -90,6 +90,17 @@ const fs = require("node:fs/promises");
       (await request(root + "/scenarios/" + example.id)).metrics.outstanding,
       [],
     );
+    await page.getByLabel("Szenario", { exact: true }).selectOption(example.id);
+    await page.getByRole("button", { name: "Stammdaten" }).click();
+    await page.getByRole("button", { name: "Klassen & Gruppen" }).click();
+    await page.getByRole("button", { name: "Klasse teilen" }).first().click();
+    await page.getByLabel("Fach der 1. Teilgruppe").selectOption("L");
+    await page.getByLabel("Fach der 2. Teilgruppe").selectOption("E");
+    await page.getByRole("button", { name: "Teilgruppen und Unterricht anlegen" }).click();
+    await page.getByText("Teilgruppen und Parallelunterricht angelegt.").waitFor();
+    const split = (await request(root + "/scenarios/" + example.id)).scenario.plan.catalog;
+    assert.equal(split.courses.filter(c => c.parallelBand === "1A-L-E").length, 2);
+    await page.getByRole("button", { name: "Wochenplan" }).click();
     await page.getByLabel("Szenario", { exact: true }).selectOption(id);
     const manual = page.getByRole("button", { name: /M · 1A/ }).first();
     await manual.click();
@@ -98,6 +109,11 @@ const fs = require("node:fs/promises");
       .getByRole("button", { name: "Schließen", exact: true })
       .last()
       .click();
+    await page.getByLabel("Klassenfilter").selectOption("1A");
+    const gridPdf = page.getByRole("link", { name: "Wochenplan als PDF" });
+    const pdfResponse = await page.request.get(new URL(await gridPdf.getAttribute("href"), base).href);
+    assert.equal(pdfResponse.status(), 200);
+    assert.equal((await pdfResponse.body()).subarray(0, 5).toString(), "%PDF-");
     const imp = await request(path + "/master/subjects/import", "POST", {
       revision: 0,
       csv: "id;name\nM;Mathematik\nX;Informatik",
@@ -216,7 +232,7 @@ const fs = require("node:fs/promises");
         (e) => e.status !== "Unterricht",
       ),
     );
-    for (const f of ["csv", "ics", "html", "pdf"]) {
+    for (const f of ["csv", "ics", "html", "pdf", "wochenplan.pdf"]) {
       const r = await page.request.get(base + root + "/exports/" + f + query);
       assert.equal(r.status(), 200);
       assert.ok((await r.body()).length > 75);
